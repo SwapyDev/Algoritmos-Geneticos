@@ -1,0 +1,32 @@
+#read text, and put every word into a list
+import string
+
+def read_corpus(file) -> list:
+    with open(file, "r", encoding="utf-8") as f:
+        content =  f.read()
+        return content.lower().split()
+
+#we need to count every time a bigram appears
+def build_bigram(text:list) -> dict:
+    bigram = {}
+    #iterate len - 1 of text so we can keep track of the last pair without going out of bounds
+    for i in range (len(text) - 1):
+        pair = (text[i], text[i + 1])
+        #if pair is in bigram + 1
+        if pair in bigram:
+            bigram[pair] += 1
+        #else add bigram
+        else:
+            bigram[pair] = 1
+    return bigram
+
+def check_freq(bigram_list:dict, threshold:int) -> dict|string:
+    filtered = {pair:freq for pair, freq in bigram_list.items() if freq >= threshold}
+    if filtered:
+        return filtered
+    return "Theres no bigrams with this frequency"
+
+if __name__ == "__main__":
+    list_of_words = read_corpus("biblia.txt")
+    bigram_count = build_bigram(list_of_words)
+    print(check_freq(bigram_count, 500))
