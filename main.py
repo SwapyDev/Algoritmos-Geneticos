@@ -1,6 +1,7 @@
 #read text, and put every word into a list
 import string
 import re
+import random
 
 def read_corpus(file) -> list:
     with open(file, "r", encoding="utf-8") as f:
@@ -59,11 +60,126 @@ def create_unique_words(text) -> dict:
 
 #dios: 15651
 #dijo: 23534,
+#create sequence of words with two known and logic words and then append another 23
+def create_persona(seed:list, vocab_size:int) -> list:
+    individual = seed[:]
+    for i in range(25-len(seed)):
+        individual.append(random.randint(0, vocab_size - 1))
+    return individual
+
+#we get the indexes of each of the personas we created above
+def decode(individual:list, vocabulary:dict) -> list:
+    invert_dict = {idx:word for word, idx in vocabulary.items()}
+    word_list = []
+    for index in individual:
+        word_list.append(invert_dict[index])
+    return word_list
+
+#get score
+#if one of the pair of words in our decoded word appears in the list of bigrams we augment the score
+def fitness(individual: list, vocabulary: dict, bigram:dict) -> int:
+    words = decode(individual, vocabulary)
+    score = 0
+    for i in range(len(words) - 1):
+        pair = (words[i], words[i + 1])
+        score +=bigram.get(pair, 0)
+    return score
+
+def create_population(size: int, seed: list, vocab_size: int) -> list:
+    population = []
+    for i in range(size):
+        population.append(create_persona(seed, vocab_size))
+    return population
+
+def tournament_selection(population: list, vocabulary: dict, bigrams: dict) -> list:
+    contenders = random.sample(population, 3)
+    winner = max(contenders, key=lambda ind: fitness(ind, vocabulary, bigrams))
+    return winner
+
+def crossover(parent1: list, parent2: list, n_seed: int) -> tuple:
+    point = random.randint(n_seed + 1, len(parent1) - 1)
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+    return child1, child2
+
+def mutate(individual: list, vocab_size: int, n_seed: int, rate: float) -> list:
+    mutant = individual[:]
+    for i in range(n_seed, len(mutant)):
+        if random.random() < rate:
+            mutant[i] = random.randint(0, vocab_size - 1)
+    return mutant
+
+
+def run_ga(generations: int, pop_size: int, seed: list,
+           vocab_size: int, vocabulary: dict, bigrams: dict) -> list:
+
+    population = create_population(pop_size, seed, vocab_size)
+    best_individual = None
+    best_fitness = 0
+
+    for gen in range(generations):
+
+        # calcular fitness de todos
+        fitnesses = [fitness(ind, vocabulary, bigrams) for ind in population]
+
+        # copiar los 5 mejores
+        sorted_pop = sorted(range(len(population)), key=lambda i: fitnesses[i], reverse=True)
+        new_population = [population[i][:] for i in sorted_pop[:5]]
+
+        # llenar el resto
+        while len(new_population) < pop_size:
+            p1 = tournament_selection(population, vocabulary, bigrams)
+            p2 = tournament_selection(population, vocabulary, bigrams)
+            c1, c2 = crossover(p1, p2, len(seed))
+            c1 = mutate(c1, vocab_size, len(seed), 0.05)
+            c2 = mutate(c2, vocab_size, len(seed), 0.05)
+            new_population.append(c1)
+            new_population.append(c2)
+
+        population = new_population[:pop_size]
+
+        # trackear el mejor
+        best_idx = sorted_pop[0]
+        if fitnesses[best_idx] > best_fitness:
+            best_fitness = fitnesses[best_idx]
+            best_individual = population[best_idx][:]
+
+        print(f"Gen {gen+1} | Fitness: {best_fitness} | {' '.join(decode(best_individual, vocabulary))}")
+
+    return best_individual
+
 
 if __name__ == "__main__":
     list_of_words = read_corpus("biblia.txt")
     bigram_count = build_bigram(list_of_words)
     #print(check_freq(bigram_count, 500))
     vocab = create_vocabulary(list_of_words)
-    #print(create_unique_words(vocab))
-    print(check_word("dios", list_of_words))
+    unique_words = create_unique_words(vocab)
+
+    seed = [unique_words["dios"], unique_words["dijo"]]
+    now = create_persona(seed=seed, vocab_size=len(unique_words))
+
+    decoded_word = decode(now, unique_words)
+
+    #print(fitness(now, unique_words, bigram_count))
+
+    population = create_population(100, seed, len(unique_words))
+    #print(len(population))
+
+    winner = tournament_selection(population, unique_words, bigram_count)
+    #print(decode(winner, unique_words))
+
+    p1 = tournament_selection(population, unique_words, bigram_count)
+    p2 = tournament_selection(population, unique_words, bigram_count)
+    c1, c2 = crossover(p1, p2, len(seed))
+    #print(decode(c1, unique_words))
+    #print(decode(c2, unique_words))
+
+    best = run_ga(
+        generations=200,
+        pop_size=100,
+        seed=seed,
+        vocab_size=len(unique_words),
+        vocabulary=unique_words,
+        bigrams=bigram_count
+    )
