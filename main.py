@@ -97,12 +97,12 @@ def penalization_repeticiones(words: list) -> int:
 
     total = len(words)
     count = Counter(words)
-    limit = total * 0.08  # antes 0.20, ahora máximo 2 veces por word (8% de 25 = 2)
+    limit = total * 0.08
 
     for palabra, frequency in count.items():
         if frequency > limit:
             exceso = frequency - limit
-            penalization += int(exceso * 500) # 500 de penalizacion
+            penalization += int(exceso * 500)
 
     return penalization
 
@@ -144,7 +144,7 @@ def run_ga(generations: int, pop_size: int, seed: list,
     best_fitness = float('-inf')
 
     for gen in range(generations):
-        # calcular fitness de todos
+
         fitnesses = [fitness_with_penalization(ind, vocabulary, bigrams) for ind in population]
 
         sorted_pop = sorted(range(len(population)), key=lambda i: fitnesses[i], reverse=True)
@@ -161,7 +161,7 @@ def run_ga(generations: int, pop_size: int, seed: list,
             p2 = tournament_selection(population, vocabulary, bigrams)
             c1, c2 = crossover(p1, p2, len(seed))
 
-            # mutación adaptativa — sube si llevamos muchas gens sin mejorar
+
             gens_sin_mejora = gen - last_improvement if 'last_improvement' in dir() else 0
             tasa = 0.15 + (0.30 if gens_sin_mejora > 15 else 0)
 
@@ -186,20 +186,18 @@ if __name__ == "__main__":
     list_of_words = read_corpus("biblia.txt")
     bigram_count = build_bigram(list_of_words)
 
-    # --- CAMBIO 1: vocabulario reducido a las 500 words más frecuentes ---
+
     word_freq = Counter(list_of_words)
     top_words = [word for word, _ in word_freq.most_common(500)]
     unique_words = {word: idx for idx, word in enumerate(top_words)}
     vocab_size = len(unique_words)
-    # -------------------------------------------------------------------------
 
 
     seed = [unique_words["dios"], unique_words["dijo"]]
 
-    # --- CAMBIO 2: población de 300 en lugar de 100 ---
     best = run_ga(
         generations=200,
-        pop_size=300,       # <-- 100 a 300
+        pop_size=300,
         seed=seed,
         vocab_size=vocab_size,
         vocabulary=unique_words,
